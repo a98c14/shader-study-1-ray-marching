@@ -11,8 +11,8 @@ struct Intersection {
 };
 
 #define SCENE_OBJECT_COUNT 5
-#define MAX_STEP_COUNT 20
-#define COLLISION_THRESHOLD .1
+#define MAX_STEP_COUNT 30
+#define COLLISION_THRESHOLD .01
 
 uniform float      uStepSize;
 uniform float      uStepCount;
@@ -40,6 +40,8 @@ float distanceToClosestObject(vec3 origin, out vec3 color) {
 float castRay(vec3 origin, vec3 direction, out vec3 color, out vec3 collisionPoint) {
   for(int i = 0 ;i < MAX_STEP_COUNT; i++) {
     float dist = distanceToClosestObject(origin, color);
+    if(dist > 10.)
+      return 0.0;
     if(dist < COLLISION_THRESHOLD) {
       collisionPoint = origin;
       return 1.0;
@@ -51,7 +53,6 @@ float castRay(vec3 origin, vec3 direction, out vec3 color, out vec3 collisionPoi
 
 void main() {
   vec3 spherePos = vec3(0., 0., 3.0);
-  vec3 lightPos = vec3(1.0, 1.0, 3.0);
   float sphereRadius = 1.0;
 
   vec3 uv = vec3((vUv - 0.5) * 2.0, 1.0);
@@ -60,5 +61,10 @@ void main() {
   vec3 color;
   vec3 collisionPoint;
   float hasIntersected = castRay(pos, dir, color, collisionPoint);
-  gl_FragColor = vec4(vec3(hasIntersected) * color, 1.0);
+  vec3 lightDir = normalize(collisionPoint - uLightPos);
+  vec3 lightColor;
+  vec3 lightCollisionPoint;
+  float lightIntersection = castRay(uLightPos, lightDir, lightColor, lightCollisionPoint);
+  float hasLight = 1. - smoothstep(0., 1.0, distance(collisionPoint, lightCollisionPoint));
+  gl_FragColor = vec4(vec3(hasLight * hasIntersected) * color, 1.0);
 }
