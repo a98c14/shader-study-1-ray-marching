@@ -5,10 +5,14 @@ struct ObjectData {
 };
 
 struct Intersection {
-  vec3 color;
+  vec3  color;
+  vec3  position;
+  float radius;
 };
 
 #define SCENE_OBJECT_COUNT 5
+#define MAX_STEP_COUNT 20
+#define COLLISION_THRESHOLD .1
 
 uniform float      uStepSize;
 uniform float      uStepCount;
@@ -19,42 +23,28 @@ uniform vec3       uLightPos;
 varying vec2       vUv;
 
 
-float checkIntersection(vec3 point, out vec3 color) {
+float distanceToClosestObject(vec3 origin, out vec3 color) {
+  float closest = 10000.;
   for(int i = 0; i < SCENE_OBJECT_COUNT; i++) {
     vec3 target = uScene[i].position;
     float radius = uScene[i].radius;
-    float intersection = 1. - step(radius, distance(point, target));
-    if(intersection > .5) {
+    float dist = distance(origin, target) - radius;
+    if(dist < closest) {
+      closest = dist;
       color = uScene[i].color;
-      return intersection;
     }
   }
+  return closest;
 }
 
-float castRayToLight(vec3 origin) {
-  vec3 direction = normalize(uLightPos - origin);
-  origin += direction * .01;
-  for(float i = 0.0; i < uStepCount; i++) {
-    origin += direction * uStepSize;
-    vec3 c;
-    float intersection = checkIntersection(origin, c);
-    if(intersection > .5)
-      return .1;
-    if(distance(uLightPos, origin) < .4) {
-      return 1.;
-    }
-  }
-}
-
-float castRay(vec3 origin, vec3 direction, out vec3 color) {
-  for(float i = 0.0; i < uStepCount; i++) {
-    origin += direction * uStepSize;
-    float intersection = checkIntersection(origin, color);
-    if(intersection > .5) {
-      vec3 lightDirection = normalize(uLightPos - origin);
-      vec3 lightColor;
-      float light = castRayToLight(origin);
-      return intersection * light;
+float castRay(vec3 origin, vec3 direction, out vec3 color, out vec3 collisionPoint) {
+  for(int i = 0 ;i < MAX_STEP_COUNT; i++) {
+    float dist = distanceToClosestObject(origin, color);
+    if(dist < COLLISION_THRESHOLD) {
+      collisionPoint = origin;
+      return 1.0;
+    } else {
+      origin += direction * dist;
     }
   }
 }
@@ -66,8 +56,9 @@ void main() {
 
   vec3 uv = vec3((vUv - 0.5) * 2.0, 1.0);
   vec3 dir = normalize(uv);
-  vec3 pos = vec3(0., 0., 1.0);
+  vec3 pos = vec3(0., 0., 0.0);
   vec3 color;
-  float hasIntersected = castRay(pos, dir, color);
+  vec3 collisionPoint;
+  float hasIntersected = castRay(pos, dir, color, collisionPoint);
   gl_FragColor = vec4(vec3(hasIntersected) * color, 1.0);
 }
